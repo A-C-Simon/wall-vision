@@ -1,0 +1,19 @@
+{
+  "kernel": "6.8.0-138-generic",
+  "adapters": [
+    {
+      "interface": "wlp3s0",
+      "pci_vendor": "0x10ec",
+      "pci_device": "0xc821",
+      "driver": "rtw_8821ce",
+      "operstate": "up",
+      "csi_support": "no supported public extractor identified"
+    }
+  ],
+  "proc_wireless_measurement_rows": 0,
+  "iw_readable": false,
+  "iw_error": "Failed to connect to generic netlink.",
+  "csi_live_verified": false,
+  "network_configuration_changed": false,
+  "status": "CSI source required; this command does not collect CSI"
+}
