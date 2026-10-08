@@ -69,6 +69,13 @@ class DetectorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Config(min_rate=10)
 
+    def test_high_frequency_does_not_alias_into_motion_band(self):
+        recording = generate(seed=23, rate=100)
+        shape = np.sin(np.linspace(-np.pi, np.pi, 64))
+        recording.csi *= np.exp(.16 * np.sin(2 * np.pi * 47 * recording.timestamps)[:, None] * shape)
+        rows = analyze(recording, self.model)
+        self.assertLess(sum(r['state'] == 'motion' for r in rows) / len(rows), .05)
+
 
 if __name__ == '__main__':
     unittest.main()

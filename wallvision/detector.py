@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 from scipy.ndimage import median_filter
-from scipy.signal import welch
+from scipy.signal import resample_poly, welch
 
 from .data import Recording
 
@@ -69,13 +69,20 @@ def window_features(recording, mask, config):
         else:
             amplitude = np.log(np.maximum(np.abs(hw[:, mask]), 1e-10))
             # Remove packet-wide gain. This intentionally sacrifices common-mode motion.
-            amplitude -= np.median(amplitude, axis=1, keepdims=True)
+            amplitude -= np.mean(amplitude, axis=1, keepdims=True)
             med = median_filter(amplitude, size=(5, 1), mode='nearest')
             dev = np.abs(amplitude - med)
             mad = median_filter(dev, size=(5, 1), mode='nearest')
             cleaned = np.where(dev > 6 * np.maximum(1.4826 * mad, 1e-4), med, amplitude)
-            grid = np.arange(round(config.window_seconds * config.sample_rate)) / config.sample_rate + left
-            uniform = np.column_stack([np.interp(grid, tw, col) for col in cleaned.T])
+            target_count = round(config.window_seconds * config.sample_rate)
+            native_rate = max(config.sample_rate, min(2000., round(rate)))
+            native_count = round(config.window_seconds * native_rate)
+            native_grid = np.arange(native_count) * config.window_seconds / native_count + left
+            uniform = np.column_stack([np.interp(native_grid, tw, col) for col in cleaned.T])
+            if native_count != target_count:
+                # Interpolation alone aliases high-frequency interference into the motion band.
+                uniform = resample_poly(uniform, target_count, native_count, axis=0, padtype='line')
+            grid = np.arange(target_count) / config.sample_rate + left
             f, psd = welch(uniform, fs=config.sample_rate, nperseg=len(grid),
                            axis=0, detrend='linear')
             band = (f >= config.low_hz) & (f <= config.high_hz)
