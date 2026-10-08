@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wallvision"
+version = "0.1.0"
+description = "CSI motion sensing with explicit measurement quality checks"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23,<3", "scipy>=1.9,<2"]
+
+[project.scripts]
+wallvision = "wallvision.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["wallvision*"]
