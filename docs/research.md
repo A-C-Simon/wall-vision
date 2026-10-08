@@ -49,6 +49,8 @@ The amplitude approach avoids treating unstable raw packet phase as motion. It c
 
 Tests use synthetic CSI with known perturbations to check mechanics and failure handling. A public capture, if accessible, can validate parsing and processing but cannot establish through-wall accuracy without wall and motion ground truth. No simulation score should be interpreted as measured human detection accuracy.
 
+The implementation was also checked against three numeric HT20 captures from the [ESPectre dataset](https://github.com/francescopace/espectre/tree/12fce9354d3506290e70a853a4f22866f0e987ef/data). Its catalog labels stationary presence, motion, and empty-room recordings separately. The numeric files preserve receiver timestamps. The selected replay result is in [results.md](results.md); raw captures remain outside this repository. The initial spectral detector misses many motion-labeled windows, which limits claims about its sensitivity.
+
 ## Experiment needed before calling it successful
 
 Keep the router and receiving computer fixed. Record at least 30 seconds of still baseline, then a separate session with alternating still and walking intervals behind the wall. Repeat at different times and include controls: motion on the near side, a door moving, and normal network use. Record wall material, distances, orientation, session labels, and any unexpected events. Keep packet payloads, credentials, SSIDs, and addresses out of the public repository.
