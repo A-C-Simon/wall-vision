@@ -1,6 +1,7 @@
 """Portable CSI recordings and Espressif signed-byte CSV imports."""
 
 import csv
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -127,3 +128,45 @@ def import_esp_csv(path, link_id='router-link'):
         'radio_format': list(signature[2:]) if signature else [],
         'provenance': 'Imported ESP32 CSV; physical conditions require separate ground truth',
     })
+
+
+def import_espectre_npz(path):
+    """Import numeric HT20 captures in ESPectre dataset format 1.2.
+
+    Never enable pickle. Preserve receiver timestamps; no packet-rate-derived
+    synthetic time axis is substituted when timestamps are absent.
+    """
+    with np.load(path, allow_pickle=False) as z:
+        if str(z['format_version'].item()) != '1.2':
+            raise ValueError('Only ESPectre dataset format 1.2 is supported')
+        values = z['csi_data']
+        if values.dtype != np.int8 or values.ndim != 2 or values.shape[1] != 128:
+            raise ValueError('Expected signed-byte, 64-bin CSI pairs')
+        for key, expected in [('phy_mode', 'ht'), ('ltf_type', 'ht-ltf'), ('channel_width', '20')]:
+            if not np.all(z[key] == expected):
+                raise ValueError(f'Unsupported or changing {key}')
+        channel = np.unique(z['channel'])
+        if len(channel) != 1:
+            raise ValueError('Channel changed during the recording')
+        raw_t = z['wifi_rx_ts_us'].astype(np.int64)
+        if raw_t.shape != (len(values),):
+            raise ValueError('Timestamp and CSI counts differ')
+        offsets = np.zeros(len(raw_t), dtype=np.int64)
+        for i in range(1, len(raw_t)):
+            offsets[i] = offsets[i - 1]
+            if raw_t[i] < raw_t[i - 1]:
+                if raw_t[i - 1] > 0xF0000000 and raw_t[i] < 0x10000000:
+                    offsets[i] += 2**32
+                else:
+                    raise ValueError('Receiver clock reset or out-of-order packets')
+        timestamps = (raw_t + offsets - raw_t[0]) / 1e6
+        h = values[:, 1::2].astype(float) + 1j * values[:, ::2].astype(float)
+        h[:, :2] = 0
+        # Only a pseudonym is exported. No endpoints or network addresses are retained.
+        link = hashlib.sha256(str(z['device_id'].item()).encode()).hexdigest()[:16]
+        metadata = {'source': 'measured', 'link_id': f'espectre-{link}',
+                    'extractor': 'espectre-npz-1.2', 'geometry': '64 HT-LTF bins; first two masked',
+                    'channel': int(channel[0]), 'chip': str(z['chip'].item()),
+                    'dataset_label': str(z['label'].item()),
+                    'provenance': 'Public ESPectre recording; local wall conditions unverified'}
+    return Recording(timestamps, h, metadata)
